@@ -7,7 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,13 +18,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavController
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RvcScreen(
+    navController: NavController? = null,
     viewModel: RvcConnectionViewModel = hiltViewModel(),
 ) {
     val connectionStatus by viewModel.connectionStatus.collectAsState()
     val settings by viewModel.settings.collectAsState()
+    val scope = rememberCoroutineScope()
     
     var endpointInput by remember { mutableStateOf("") }
     var pitch by remember { mutableStateOf(settings.pitch.toString()) }
@@ -35,140 +40,153 @@ fun RvcScreen(
     var selectedF0Method by remember { mutableStateOf(settings.f0Method) }
     var speakerId by remember { mutableStateOf(settings.speakerId.toString()) }
     var protectConsonants by remember { mutableStateOf(settings.protectConsonants) }
+    var isRecording by remember { mutableStateOf(false) }
     
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .background(Color(0xFFF5F5F7))  // iOS light gray
-            .padding(16.dp),
-    ) {
-        // Header
-        Text(
-            "🎙️ RVC Voice Converter",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-        
-        // Connection Status Card
-        ConnectionStatusCard(connectionStatus)
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Endpoint Input
-        GlassmorphicCard {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Kaggle Endpoint", style = MaterialTheme.typography.labelMedium)
-                OutlinedTextField(
-                    value = endpointInput,
-                    onValueChange = { endpointInput = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    placeholder = { Text("https://kaggle-...com/api") },
-                    singleLine = true,
-                )
-                Button(
-                    onClick = { viewModel.testConnection(endpointInput) },
-                    modifier = Modifier
-                        .align(Alignment.End)
-                        .padding(top = 8.dp)
-                ) {
-                    Text("Test Connection")
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("🎙️ RVC Voice Converter") },
+                navigationIcon = {
+                    IconButton(onClick = { navController?.popBackStack() }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
                 }
-            }
+            )
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Voice Parameters
-        GlassmorphicCard {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Voice Parameters", style = MaterialTheme.typography.labelMedium)
-                
-                // Speaker ID
-                Spacer(modifier = Modifier.height(12.dp))
-                ParameterRow("Speaker ID", speakerId) { speakerId = it }
-                
-                // Pitch
-                Spacer(modifier = Modifier.height(12.dp))
-                ParameterRow("Pitch (-12 to +12)", pitch) { pitch = it }
-                
-                // Formant
-                Spacer(modifier = Modifier.height(12.dp))
-                ParameterRow("Formant (-3.0 to +3.0)", formant) { formant = it }
-                
-                // Index Rate
-                Spacer(modifier = Modifier.height(12.dp))
-                ParameterRow("Index Rate (0.0 to 1.0)", indexRate) { indexRate = it }
-                
-                // Protect Consonants
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Protect Consonants")
-                    Checkbox(
-                        checked = protectConsonants,
-                        onCheckedChange = { protectConsonants = it }
-                    )
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Processing Parameters
-        GlassmorphicCard {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Processing", style = MaterialTheme.typography.labelMedium)
-                
-                // F0 Method
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("F0 Method", style = MaterialTheme.typography.labelSmall)
-                F0MethodDropdown(selectedF0Method) { selectedF0Method = it }
-                
-                // Chunk Size
-                Spacer(modifier = Modifier.height(12.dp))
-                ParameterRow("Chunk Size (1-1000)", chunkSize) { chunkSize = it }
-                
-                // Hop Length
-                Spacer(modifier = Modifier.height(12.dp))
-                ParameterRow("Hop Length (1-512)", hopLength) { hopLength = it }
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Action Buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .background(Color(0xFFF5F5F7))
+                .padding(padding)
+                .padding(16.dp),
         ) {
-            Button(
-                onClick = { /* Start recording and processing */ },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-            ) {
-                Text("🎤 START")
+            // Connection Status Card
+            ConnectionStatusCard(connectionStatus)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Endpoint Input
+            GlassmorphicCard {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Kaggle Endpoint", style = MaterialTheme.typography.labelMedium)
+                    OutlinedTextField(
+                        value = endpointInput,
+                        onValueChange = { endpointInput = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        placeholder = { Text("https://kaggle-...com/api") },
+                        singleLine = true,
+                    )
+                    Button(
+                        onClick = { 
+                            scope.launch {
+                                viewModel.testConnection(endpointInput)
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .padding(top = 8.dp)
+                    ) {
+                        Text("Test Connection")
+                    }
+                }
             }
             
-            OutlinedButton(
-                onClick = { /* Stop */ },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-            ) {
-                Text("STOP")
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Voice Parameters
+            GlassmorphicCard {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Voice Parameters", style = MaterialTheme.typography.labelMedium)
+                    
+                    // Speaker ID
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ParameterRow("Speaker ID", speakerId) { speakerId = it }
+                    
+                    // Pitch
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ParameterRow("Pitch (-12 to +12)", pitch) { pitch = it }
+                    
+                    // Formant
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ParameterRow("Formant (-3.0 to +3.0)", formant) { formant = it }
+                    
+                    // Index Rate
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ParameterRow("Index Rate (0.0 to 1.0)", indexRate) { indexRate = it }
+                    
+                    // Protect Consonants
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Protect Consonants")
+                        Checkbox(
+                            checked = protectConsonants,
+                            onCheckedChange = { protectConsonants = it }
+                        )
+                    }
+                }
             }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Processing Parameters
+            GlassmorphicCard {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Processing", style = MaterialTheme.typography.labelMedium)
+                    
+                    // F0 Method
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("F0 Method", style = MaterialTheme.typography.labelSmall)
+                    F0MethodDropdown(selectedF0Method) { selectedF0Method = it }
+                    
+                    // Chunk Size
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ParameterRow("Chunk Size (1-1000)", chunkSize) { chunkSize = it }
+                    
+                    // Hop Length
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ParameterRow("Hop Length (1-512)", hopLength) { hopLength = it }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = { isRecording = !isRecording },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    enabled = connectionStatus is ConnectionStatus.Connected,
+                ) {
+                    Text(if (isRecording) "⏹️ STOP" else "🎤 START")
+                }
+                
+                OutlinedButton(
+                    onClick = { /* Save preset */ },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                ) {
+                    Text("💾 SAVE")
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
