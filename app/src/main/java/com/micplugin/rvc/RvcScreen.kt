@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,9 +27,13 @@ import kotlinx.coroutines.launch
 fun RvcScreen(
     navController: NavController? = null,
     viewModel: RvcConnectionViewModel = hiltViewModel(),
+    monitorViewModel: RvcMonitorViewModel = hiltViewModel(),
 ) {
     val connectionStatus by viewModel.connectionStatus.collectAsState()
     val settings by viewModel.settings.collectAsState()
+    val isMonitorEnabled by monitorViewModel.isMonitorEnabled.collectAsState()
+    val volume by monitorViewModel.volume.collectAsState()
+    val isPlayingOutput by monitorViewModel.isPlayingOutput.collectAsState()
     val scope = rememberCoroutineScope()
     
     var endpointInput by remember { mutableStateOf("") }
@@ -64,6 +69,17 @@ fun RvcScreen(
         ) {
             // Connection Status Card
             ConnectionStatusCard(connectionStatus)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Monitor Card
+            MonitorCard(
+                isEnabled = isMonitorEnabled,
+                volume = volume,
+                isPlaying = isPlayingOutput,
+                onToggle = { monitorViewModel.enableMonitor(!isMonitorEnabled) },
+                onVolumeChange = { monitorViewModel.setVolume(it) }
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -171,6 +187,9 @@ fun RvcScreen(
                         .weight(1f)
                         .height(48.dp),
                     enabled = connectionStatus is ConnectionStatus.Connected,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isRecording) Color(0xFFFF3B30) else Color.Blue
+                    )
                 ) {
                     Text(if (isRecording) "⏹️ STOP" else "🎤 START")
                 }
@@ -186,6 +205,95 @@ fun RvcScreen(
             }
             
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+fun MonitorCard(
+    isEnabled: Boolean,
+    volume: Float,
+    isPlaying: Boolean,
+    onToggle: () -> Unit,
+    onVolumeChange: (Float) -> Unit,
+) {
+    GlassmorphicCard {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "📱 Monitor (Hear Yourself)",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Switch(
+                    checked = isEnabled,
+                    onCheckedChange = { onToggle() }
+                )
+            }
+            
+            if (isEnabled) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Volume Slider
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.VolumeUp,
+                        contentDescription = "Volume",
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.Gray
+                    )
+                    Slider(
+                        value = volume,
+                        onValueChange = onVolumeChange,
+                        modifier = Modifier.weight(1f),
+                        valueRange = 0f..1f,
+                        steps = 10
+                    )
+                    Text(
+                        "${(volume * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.width(35.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Playing indicator
+                if (isPlaying) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp)
+                            .background(
+                                Color(0xFF34C759).copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "🔊 Now playing...",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF34C759)
+                        )
+                    }
+                }
+            }
         }
     }
 }
