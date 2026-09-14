@@ -5,6 +5,8 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.post
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.call.body
+import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
@@ -47,7 +49,7 @@ class RvcApiClient(private val kaggleEndpoint: String) {
     }
 
     suspend fun healthCheck(): Result<RvcHealthResponse> = try {
-        val response = client.get<RvcHealthResponse>("$kaggleEndpoint/health")
+        val response: RvcHealthResponse = client.get("$kaggleEndpoint/health").body()
         Result.success(response)
     } catch (e: Exception) {
         Log.e("RvcApiClient", "Health check failed", e)
@@ -70,11 +72,11 @@ class RvcApiClient(private val kaggleEndpoint: String) {
             f0Method = settings.f0Method,
         )
         
-        val response = client.post<RvcProcessResponse>("${settings.kaggleEndpoint}/process") {
+        val response: RvcProcessResponse = client.post("${settings.kaggleEndpoint}/process") {
             contentType(ContentType.Application.Json)
             // Body would be serialized automatically by ContentNegotiation plugin
-            // setBody(request) — requires proper plugin setup
-        }
+            setBody(request)
+        }.body()
         
         if (response.status == "success" && response.audioBase64 != null) {
             Result.success(response)

@@ -4,7 +4,6 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
-import kotlin.math.minOf
 
 class RvcAudioPlayer {
     companion object {
@@ -31,7 +30,8 @@ class RvcAudioPlayer {
                     .setEncoding(AUDIO_FORMAT)
                     .build(),
                 bufferSize * 2,
-                AudioTrack.MODE_STREAM
+                AudioTrack.MODE_STREAM,
+                android.media.AudioManager.AUDIO_SESSION_ID_GENERATE
             )
             audioTrack?.play()
             Log.d(TAG, "AudioTrack initialized")

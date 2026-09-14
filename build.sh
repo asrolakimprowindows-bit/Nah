@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 # Configuration
 APP_NAME="MicUp-RVC"
 BUILD_TYPE="release"  # debug or release
-OUT_DIR="build/outputs/apk"
+OUT_DIR="app/build/outputs/apk"
 
 echo -e "${YELLOW}Step 1: Cleaning previous builds...${NC}"
 ./gradlew clean
